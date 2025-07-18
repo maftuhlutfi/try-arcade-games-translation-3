@@ -137,7 +137,7 @@ class InteractiveMenu:
                 sys.exit(0)
     
     @staticmethod
-    def confirm_translation(source_lang: str, target_lang: str, files: List[str]) -> bool:
+    def confirm_translation(source_lang: str, target_lang: str, files: List[str], device_type: str = "auto") -> bool:
         """Confirm translation settings"""
         languages = InteractiveMenu.get_supported_languages()
         
@@ -146,6 +146,7 @@ class InteractiveMenu:
         print("="*50)
         print(f"🔤 Bahasa asal    : {languages.get(source_lang, source_lang)} ({source_lang})")
         print(f"🎯 Bahasa tujuan  : {languages.get(target_lang, target_lang)} ({target_lang})")
+        print(f"⚙️  Device type   : {device_type.upper()}")
         print(f"📁 File yang akan diproses:")
         for i, filename in enumerate(files, 1):
             print(f"   {i}. {filename}")
@@ -165,20 +166,54 @@ class InteractiveMenu:
             except KeyboardInterrupt:
                 print("\n⚠️  Program dibatalkan")
                 sys.exit(0)
+    
+    @staticmethod
+    def select_device_type() -> str:
+        """Interactive device type selection for CUDA/CPU"""
+        print("\n⚙️  PILIH MODE PEMROSESAN")
+        print("-" * 40)
+        print("1. Auto (Gunakan GPU jika tersedia, fallback ke CPU)")
+        print("2. CUDA (Paksa gunakan GPU - requires PyTorch + CUDA)")
+        print("3. CPU (Paksa gunakan CPU saja)")
+        
+        while True:
+            try:
+                choice = input("\nPilih mode (1-3): ").strip()
+                
+                if choice == "1":
+                    print("✅ Dipilih: Auto mode")
+                    return "auto"
+                elif choice == "2":
+                    print("✅ Dipilih: CUDA/GPU mode")
+                    return "cuda"
+                elif choice == "3":
+                    print("✅ Dipilih: CPU mode")
+                    return "cpu"
+                else:
+                    print("❌ Pilihan tidak valid!")
+            except ValueError:
+                print("❌ Masukkan nomor yang valid!")
+            except KeyboardInterrupt:
+                print("\n⚠️  Program dibatalkan")
+                sys.exit(0)
 
 
 class CSVTranslator:
     """Main class for CSV translation operations"""
     
-    def __init__(self, source_lang: str = "en", target_lang: str = "id"):
+    def __init__(self, source_lang: str = "en", target_lang: str = "id", device_type: str = "auto"):
         self.source_lang = source_lang
         self.target_lang = target_lang
+        self.device_type = device_type
         self.input_dir = Path("input")
         self.output_dir = Path("output") / target_lang
         self.column_config = self._load_column_config()
         
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set up CUDA environment if needed
+        self._setup_cuda_environment()
         
         # Install translation packages if needed
         self._install_translation_packages()
@@ -197,6 +232,40 @@ class CSVTranslator:
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in configuration file: {e}")
+    
+    def _setup_cuda_environment(self):
+        """Setup CUDA environment for GPU acceleration"""
+        if self.device_type in ["cuda", "auto"]:
+            try:
+                # Check if CUDA is available
+                import torch
+                if torch.cuda.is_available():
+                    print(f"🚀 CUDA detected! Using GPU acceleration")
+                    print(f"   GPU Device: {torch.cuda.get_device_name(0)}")
+                    print(f"   GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+                    
+                    # Set environment variable for CTranslate2
+                    os.environ['ARGOS_DEVICE_TYPE'] = 'cuda'
+                    
+                    # Set CUDA device
+                    torch.cuda.set_device(0)
+                    
+                    self.using_cuda = True
+                    print(f"   Device type set to: cuda")
+                else:
+                    print("⚠️  CUDA not available, falling back to CPU")
+                    os.environ['ARGOS_DEVICE_TYPE'] = 'cpu'
+                    self.using_cuda = False
+            except ImportError:
+                print("⚠️  PyTorch not installed, CUDA support unavailable")
+                print("   To enable GPU support, install PyTorch with CUDA:")
+                print("   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+                os.environ['ARGOS_DEVICE_TYPE'] = 'cpu'
+                self.using_cuda = False
+        else:
+            print("🖥️  Using CPU for translation")
+            os.environ['ARGOS_DEVICE_TYPE'] = 'cpu'
+            self.using_cuda = False
     
     def _install_translation_packages(self):
         """Install required translation packages"""
@@ -530,17 +599,30 @@ def main():
     parser.add_argument("--list", "-l", action="store_true", help="List available CSV files")
     parser.add_argument("--interactive", "-i", action="store_true", help="Run in interactive mode")
     parser.add_argument("--auto", "-a", action="store_true", help="Auto mode (en->id, all files)")
+    parser.add_argument("--device", "-d", choices=["auto", "cuda", "cpu"], default="auto", 
+                        help="Device type for translation (auto/cuda/cpu)")
+    parser.add_argument("--gpu", "-g", action="store_true", help="Force GPU/CUDA usage (same as --device cuda)")
     
     args = parser.parse_args()
     
+    # Handle GPU flag
+    if args.gpu:
+        device_type = "cuda"
+    else:
+        device_type = args.device
+    
     try:
-        # Check if running in interactive mode (default if no args provided)
-        if not any(vars(args).values()) or args.interactive:
+        # Check if running in interactive mode (default if no meaningful args provided)
+        # Consider it interactive if no specific action arguments are provided
+        meaningful_args = [args.source, args.target, args.file, args.list, args.auto, args.gpu]
+        has_meaningful_args = any(arg for arg in meaningful_args if arg)
+        
+        if not has_meaningful_args or args.interactive:
             # Interactive mode
             InteractiveMenu.display_menu_header()
             
             # Initialize translator with defaults to get available files
-            temp_translator = CSVTranslator("en", "id")
+            temp_translator = CSVTranslator("en", "id", "auto")
             available_files = temp_translator.get_available_csv_files()
             
             if not available_files:
@@ -557,6 +639,9 @@ def main():
                 print("⚠️  Bahasa asal dan tujuan sama, tidak perlu diterjemahkan!")
                 return 1
             
+            # Select device type
+            device_type = InteractiveMenu.select_device_type()
+            
             # Select files
             selected_files = InteractiveMenu.select_files(available_files)
             
@@ -564,22 +649,23 @@ def main():
                 return 1
             
             # Confirm settings
-            if not InteractiveMenu.confirm_translation(source_lang, target_lang, selected_files):
+            if not InteractiveMenu.confirm_translation(source_lang, target_lang, selected_files, device_type):
                 return 1
             
-            # Initialize translator with selected languages
-            translator = CSVTranslator(source_lang, target_lang)
+            # Initialize translator with selected languages and device
+            translator = CSVTranslator(source_lang, target_lang, device_type)
             
         else:
             # Command line mode
             if args.auto:
                 source_lang, target_lang = "en", "id"
-                print("🚀 Auto mode: English -> Indonesian, semua file")
+                print(f"🚀 Auto mode: English -> Indonesian, semua file")
+                print(f"🖥️  Device: {device_type}")
             else:
                 source_lang = args.source or "en"
                 target_lang = args.target or "id"
             
-            translator = CSVTranslator(source_lang, target_lang)
+            translator = CSVTranslator(source_lang, target_lang, device_type)
             
             if args.list:
                 files = translator.get_available_csv_files()
@@ -626,6 +712,11 @@ def main():
         print("\n⚠️  Process interrupted by user")
     except Exception as e:
         print(f"❌ Error: {e}")
+        if "torch" in str(e).lower() or "cuda" in str(e).lower():
+            print("\n💡 CUDA Setup Help:")
+            print("   To enable GPU acceleration, install PyTorch with CUDA:")
+            print("   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+            print("   Or for CPU-only: pip install torch")
         return 1
     
     return 0
