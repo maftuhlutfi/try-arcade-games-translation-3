@@ -1,0 +1,136 @@
+{
+  "gm_categories.csv": {
+    "translate": [
+      "name",
+      "footer_description",
+      "categoryDescriptionRated",
+      "categoryDescriptionNew",
+      "categoryDescriptionAtoz",
+      "categoryDescriptionPopular"
+    ],
+    "skip": [
+      "id",
+      "category_pilot",
+      "image",
+      "show_home",
+      "total_games"
+    ]
+  },
+  "gm_blogs.csv": {
+    "translate": [
+      "title",
+      "post"
+    ],
+    "skip": [
+      "id",
+      "url",
+      "image_url",
+      "date_created",
+      "category"
+    ]
+  },
+  "gm_blogs_category.csv": {
+    "translate": [
+      "category_name"
+    ],
+    "skip": [
+      "id",
+      "date_added",
+      "date_modified"
+    ]
+  },
+  "gm_footer_description.csv": {
+    "translate": [
+      "description",
+      "content_value"
+    ],
+    "skip": [
+      "id",
+      "page_name",
+      "page_url",
+      "has_content"
+    ]
+  },
+  "gm_games.csv": {
+    "translate": [
+      "game_name",
+      "name",
+      "description",
+      "instructions"
+    ],
+    "skip": [
+      "game_id",
+      "catalog_id",
+      "image",
+      "import",
+      "category",
+      "plays",
+      "rating",
+      "file",
+      "game_type",
+      "w",
+      "h",
+      "date_added",
+      "published",
+      "featured",
+      "mobile",
+      "featured_sorting",
+      "field_1",
+      "field_2",
+      "field_3",
+      "field_4",
+      "field_5",
+      "field_6",
+      "field_7",
+      "field_8",
+      "field_9",
+      "field_10",
+      "tags_ids",
+      "video_url",
+      "is_last_rewrite",
+      "wt_video",
+      "redirect_link",
+      "redirect_link_another_page",
+      "game_play_uri",
+      "datetime_last_update"
+    ]
+  },
+  "gm_tags.csv": {
+    "translate": [
+      "name",
+      "footer_description",
+      "keywordDescriptionRated",
+      "keywordDescriptionNew",
+      "keywordDescriptionAtoz",
+      "keywordDescriptionPopular"
+    ],
+    "skip": [
+      "id",
+      "url",
+      "is_last_rewrite",
+      "is_rewrited",
+      "show_home",
+      "image",
+      "total_games"
+    ]
+  },
+  "gm_tags_short.csv": {
+    "translate": [
+      "name",
+      "footer_description",
+      "keywordDescriptionRated",
+      "keywordDescriptionNew",
+      "keywordDescriptionAtoz",
+      "keywordDescriptionPopular"
+    ],
+    "skip": [
+      "id",
+      "url",
+      "is_last_rewrite",
+      "is_rewrited",
+      "show_home",
+      "image",
+      "total_games"
+    ]
+  }
+}
